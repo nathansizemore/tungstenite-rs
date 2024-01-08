@@ -9,6 +9,7 @@ use std::ops::Deref;
 use std::{
     fmt::{self, Debug},
     io::{Read, Result as IoResult, Write},
+    os::fd::{AsRawFd, RawFd},
 };
 
 use std::net::TcpStream;
@@ -140,6 +141,18 @@ impl<S: Read + Write + NoDelay> NoDelay for MaybeTlsStream<S> {
             MaybeTlsStream::NativeTls(ref mut s) => s.set_nodelay(nodelay),
             #[cfg(feature = "__rustls-tls")]
             MaybeTlsStream::Rustls(ref mut s) => s.set_nodelay(nodelay),
+        }
+    }
+}
+
+impl<S: Read + Write + AsRawFd> AsRawFd for MaybeTlsStream<S> {
+    fn as_raw_fd(&self) -> RawFd {
+        match *self {
+            MaybeTlsStream::Plain(ref s) => s.as_raw_fd(),
+            #[cfg(feature = "native-tls")]
+            MaybeTlsStream::NativeTls(ref s) => s.get_ref().as_raw_fd(),
+            #[cfg(feature = "__rustls-tls")]
+            MaybeTlsStream::Rustls(ref s) => s.sock.as_raw_fd(),
         }
     }
 }
